@@ -1,0 +1,14 @@
+{
+	"Steps": 50,
+	"Available Devices": [
+		"total_consumption",
+		"fridge",
+		"oven",
+		"water_heater",
+		"dishwasher",
+		"washing_machine",
+		"microwave",
+		"AC",
+		"dryer"
+		]
+}
