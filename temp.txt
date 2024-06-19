@@ -1,0 +1,70 @@
+(defrule tretrg
+    (hum_after ?hum_after)
+    (hum_before ?hum_before)
+    =>
+    (if (> ?hum_after ?hum_before)
+ 	then
+		(assert (Humididty got higher))
+ 	else
+		(assert (Humididty got lower))
+)
+
+(defrule compare-lighting
+    (lighting_after ?lighting_after)
+    (lighting_before ?lighting_before)
+    =>
+    (if (> ?lighting_after ?lighting_before)
+ 	then
+		(assert (lighting got higher))
+ 	else
+		(assert (lighting got lower))
+)
+
+(defrule compare-co2
+    (co2_after ?co2_after)
+    (co2_before ?co2_before)
+    =>
+    (if (> ?co2_after ?co2_before)
+ 	then
+		(assert (co2 got higher))
+ 	else
+		(assert (co2 got lower))
+     )
+)
+
+(defrule check_water_heater1
+    (water_heater_before on) and S(water_heater_after off)
+    =>
+    (assert (new rule fired))
+)
+
+(defrule check_water_heater2
+    (water_heater_before ?water_heater_before)
+    =>
+    (if (= ?water_heater_before on)
+ 	then
+		(assert (water heater was on))
+     )
+)
+
+;"lalalala"
+(defrule checkRule1
+    (Rule1 recommended)
+    =>
+    (printout t "lala" crlf)
+    (assert (lala 1))
+)
+
+(defrule checkRule2
+    (Temperature got lower)
+    =>
+    (printout t "lala2" crlf)
+    (assert (lala 2))
+)
+
+(defrule check-temperature
+    (temp ?temp)
+    (test (> ?temp 30))
+    =>
+    (printout t "The temperature is above 30 degrees." crlf)
+)
