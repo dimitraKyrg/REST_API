@@ -1,6 +1,10 @@
 import mysql.connector
 import pandas as pd
 
+'''
+    This file contains functions used to create read and write from an sql database
+'''
+
 def createSqlDatabase(dbName,host,user,port,password):
     '''  
     arguments:
@@ -59,6 +63,7 @@ def addRowToDatabase(dbName,host,user,port,password,rowDict):
     ----------
         dbName                          -- name of the database
         host, user, port, password      --  mySql server info
+        rowDict                         -- the row that will be added in a dictionary form
 
     output:
     --------
@@ -86,6 +91,7 @@ def addRowToDatabase(dbName,host,user,port,password,rowDict):
 
     mydb.commit()
 
+# edv na to xvrisv se duo functions, to ena na pairnei olh th bash (h estv kapoiew teleytaies times an ginei terastia) kai to allo na apomonvnei thn teleytaia seira
 def extractRowsFromDatabase(dbName,host,user,port,password):
     mydb = mysql.connector.connect(
         host = host,
@@ -101,15 +107,7 @@ def extractRowsFromDatabase(dbName,host,user,port,password):
     myresult = mycursor.fetchall()
     result_dataFrame = pd.read_sql("SELECT * FROM sensorMeasurements", mydb)
 
-    lastRow = result_dataFrame.iloc[-2]
+    lastRow = result_dataFrame.iloc[-1]
     lastRowDict = lastRow.to_dict()
-
-    print('\n-------------------------------this is for extraction from database-----------------------------------------')
-    print(myresult)
-    print(result_dataFrame)
-    print('-------------------------------------------------------------------------------------------------------------')
-    print(lastRow)
-    print(lastRowDict)
-    print('-------------------------------this is for extraction from database finish-----------------------------------------\n')
 
     return lastRowDict

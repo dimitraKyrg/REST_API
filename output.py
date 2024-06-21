@@ -13,34 +13,13 @@ from durable_rules_tools.rules_utils import new_ruleset, Set, Subject
 import clips
 from multiprocessing import Process, Queue
 import sqlDB
-
-def trial(url='http://127.0.0.1:8084/comfort'):
-    #s = requests.Session()
-    dictionary = {
-    "client": "00606EFFFEABADEF",
-    "timestamp": "2020-03-01 19:18:00",
-    "latitude": 37.999545,
-    "longitude": 23.746887,
-    "devices": {
-        "hvac": {
-            "temperature": 29.00,
-            "humidity": 40.00,
-            "luminance": 800
-        },
-        "sensor": {
-            "temperature": 31.00,
-            "humidity": 45.00,
-            "luminance": 100
-        }
-    }
-    }
-
-    response = requests.post(url,json=dictionary)
-
-    print(response.json())
+import re
 
 current_time = datetime.datetime.now()
 
+'''
+    declaration of json variables for when using the post method in Api's endpoints.
+'''
 create_activity_models_body = {
     "client": "00606EFFFEABADEF",
     "training_set": {
@@ -236,7 +215,20 @@ tch_train_body = {
 	]
 }
 
+
 def simulateSensors(client):
+    """
+    This is a temporary function to simulate taking measurements from sensors. Instead of taking the measurements, it asks for them as keyboard input.
+
+    arguments:
+    ----------
+    client          -- client for which measurements will be taken
+
+    output:
+    --------
+    sensor_dict     -- dictionary with measurements from all sensors and the timestamp
+
+    """
     current_time = str(datetime.datetime.now())
     latitude = input("latitude? ")
     longitude = input("longitude? ")
@@ -255,13 +247,23 @@ def simulateSensors(client):
     return sensor_dict
 
 def collectRecommendations(sensor_dict):
+    """
+    This function takes as input measurements from the sensors runs all necessary AI models and returns numbers of recommendations .
 
-    current_time = str(datetime.datetime.now())[:19]
+    arguments:
+    ----------
+    sensor_dict             -- dictionary with measurements from sensors 
 
-    # get comfort info
+    output:
+    --------
+    recommendationNumbers   -- list with all recommendations
+
+    """
+
+    # get thermal and visual comfort from hvac and sensor
     comfort_body = {
             "client": sensor_dict['client'],
-            "timestamp": current_time,
+            "timestamp": sensor_dict['timestamp'],
             "latitude": 37.999545,
             "longitude": 23.746887,
             "devices": {
@@ -284,29 +286,29 @@ def collectRecommendations(sensor_dict):
     # get occupancy info
     occupancy_body = {
     "client": sensor_dict['client'],
-    "timestamp": "2020-03-01 19:18:00",
+    "timestamp": sensor_dict['timestamp'],
     "consumption": 2024.0,
     "manager_data": {
         "feedback": {
             "presence": 0,
-            "timestamp": "2020-03-01 19:00:00"
+            "timestamp": sensor_dict['timestamp']
         },
         "geofencing": {
             "latitude": 38.041061,
             "longitude": 23.744697,
-            "timestamp": "2020-03-01 19:00:00"
+            "timestamp": sensor_dict['timestamp']
         },
         "scheduler": {
             "presence": 0,
-            "timestamp": "2020-03-01 19:00:00"
+            "timestamp": sensor_dict['timestamp']
         },
         "sensor": {
             "presence": 0,
-            "timestamp": "2020-03-01 19:00:00"
+            "timestamp": sensor_dict['timestamp']
         },
             "smartplug": {
             "presence": 0,
-            "timestamp": "2020-03-01 19:00:00"
+            "timestamp": sensor_dict['timestamp']
         }
     }
 }
@@ -341,10 +343,10 @@ def collectRecommendations(sensor_dict):
     # override occupancy so that it works for now
     occupancy = 1
 
-    #get activity info
+    # get activity info (boolean value for each device)
     activity_body = {
         "client": sensor_dict['client'],
-        "timestamp": "2020-03-01 19:18:00",
+        "timestamp": sensor_dict['timestamp'],
         "devices": new_devices,
         "occupancy": {
             "occupancy": occupancy
@@ -356,9 +358,9 @@ def collectRecommendations(sensor_dict):
     for key, value in activity_response.items():
         locals()[key] = value 
 
-    # get recommendations 
+    # create the json that will be used with the post method in the recommendation endpoint
     recommendation_body = {
-        "timestamp": "2020-03-01 19:18:00",
+        "timestamp": sensor_dict['timestamp'],
         "client": "00606EFFFEAB11DB",
         "reinitialize_recommendations": False,
         "devices": new_devices,
@@ -459,50 +461,85 @@ def collectRecommendations(sensor_dict):
         }
     }
     
-
     # get recommendation info
     recommendation_response = requests.post('http://127.0.0.1:8084/recommendation',json=recommendation_body).json()
     recomedtationList = recommendation_response['recommendations']
     recommendationNumbers = []
+    recommendationMessages = []
 
     for rec in recomedtationList:
         recNumb = rec['number']
         recommendationNumbers.append(recNumb)
+        recMess = rec['message']
+        recommendationMessages.append(recMess)
 
     print(recommendationNumbers)
+    print(recommendationMessages)
 
     return recommendationNumbers
 
-#def checkRules():
 
 def getRecommendations(q,databaseName):
+    """
+    This function is called repetively in a time interval specified in the scheduler declaration. First, it calls the function simulate sensors to take sensor mesurements. 
+    Then, writes in an sql database the measurements and the timestamp. Then, uses these measurements to feed the ai models and get recommendations.
 
+    arguments:
+    ----------
+    q               -- it is a queue object used to share variables between threads (processes) 
+    databaseNmae    -- the name of the database used to store sensor measurements 
+
+    output:
+    --------
+    recommendationNumbers   -- list with all recommendations
+
+    """
     # take measurements from all sensors
     sensorDict_before = simulateSensors("00606EFFFEABADEF")
+    # place measurements in an sql database
     sqlDB.addRowToDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName=databaseName,rowDict = sensorDict_before)
 
     # run ai to get recommendations
     recommendationNumbers = collectRecommendations(sensorDict_before)
 
+    # q is a queue. It is used as a pipe between processes. 
+    # In this case it is used to pass the list of activated recommendations from the first process to the second.
     q.put(recommendationNumbers)
 
 def checkRecommendations(q,databaseName):
+    """
+    This function is called repetively in a specific exact time interval after "getRecommendations".  First, pops out the list of activated recommendations from the q queue.
+    Then it takes new measurements using simulate sensors again and writes them in the sql database. 
 
-    print('abcd')
+    arguments:
+    ----------
+    q                           -- it is a queue object used to share variables between threads (processes) 
+    databaseName                -- the name of the database used to store sensor measurements 
+
+    output:
+    --------
+    followedRecommendations     -- list of numbers of recommendations that were followed by the user
+    dismissedRecommendations    -- list of numbers of recommendations that were dismissed
+
+    """
+
+    # extract measurements from previous timestamp from database
+    sensorDict_before = sqlDB.extractRowsFromDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName = databaseName)
+
+    # the list with activated recommendations pops out of the que, now the queue is empty and this fuction knows which recommendations were activated
     recommendationNumbers = q.get()
+    # get sensor measurements and write them in the database
     sensorDict_after = simulateSensors("00606EFFFEABADEF")
-    print(sensorDict_after)
     sqlDB.addRowToDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName=databaseName,rowDict = sensorDict_after)
+
+    # temprarily add some recommendation numbers just to check rules in the next step
     recommendationNumbers = recommendationNumbers + [1,2,3,4]
 
     # place recommendation facts in rule environment
     for recommendationNumber in recommendationNumbers:
         env.assert_string(f"(Number{recommendationNumber} was recommended)")
 
-    # extract measurements from previous timestamp from database
-    sensorDict_before = sqlDB.extractRowsFromDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName = databaseName)
-    print(sensorDict_before)
-    # place sensors facts in rule environment
+    # place sensor facts in rule environment
     for key in sensorDict_before:
         env.assert_string(f"({key}_before {sensorDict_before[key]})")
 
@@ -519,15 +556,28 @@ def checkRecommendations(q,databaseName):
     print(facts)
 
     # isolate only facts that refer to execution of recommendations
-    recommendationFacts = []
+    followedRecommendations = []
+    dismissedRecommendations = []
     for fact in facts:
-        if "Number" in fact:
-            recommendationFacts.append(fact)
-    print(recommendationFacts)
+        if re.match(r"Number[\d]+ was dismissed", fact) != None:
+            index = fact.find(' ')
+            number = fact[6:index]
+            followedRecommendations.append(int(number))
+        elif re.match(r"Number[\d]+ was followed", fact) != None:
+            index = fact.find(' ')
+            number = fact[6:index]
+            dismissedRecommendations.append(int(number))
 
+    print(followedRecommendations)
+    print(dismissedRecommendations)
+
+    return followedRecommendations,dismissedRecommendations
+
+# create the queue object, which will be used to share variables between processes.
 q = Queue()
+
 # create database
-databaseName = "fysikoAerio15"
+databaseName = "fysikoAerio25"
 sqlDB.createSqlDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName = databaseName)
 
 # create the rule environment
@@ -536,6 +586,7 @@ env = clips.Environment()
 # set conflict strategy : strategy according to which newly activated rules are 
 # placed in the stack of rules to be executed. BREADTH strategy is used.
 # BREADTH = Newly activated rules are placed below all rules of the same salience
+# Rules that are activated 
 env.strategy = clips.Strategy.BREADTH
 
 # check the used strategy is indeed the chosen one.
@@ -543,60 +594,25 @@ print(env._agenda.strategy)
 
 # add the rules from file to the environment
 env.clear()
-rule_file = 'ruule.CLP'
+rule_file = 'rules.CLP'
 env.load(rule_file)
 
 # Create a scheduler
 scheduler = BackgroundScheduler()
-# Add the job to the scheduler - runs the 'job' function every minute
-scheduler.add_job(getRecommendations, 'cron', minute="45,48",args=[q,databaseName])
-#scheduler.add_job(secondPhase(q), 'cron', minute=13)
-scheduler.add_job(checkRecommendations, 'cron', minute="46,49",args=[q,databaseName])
+# Add the job to the scheduler - runs the 'getRecommendations' function every 00 minute
+scheduler.add_job(getRecommendations, 'cron', minute="26",args=[q,databaseName])
+# Add the job to the scheduler - runs the 'checkRecommendations' function every 15 minute
+scheduler.add_job(checkRecommendations, 'cron', minute="27",args=[q,databaseName])
 # Start the scheduler
 scheduler.start()
 
+'''
+    In this function a cronlike scheduler is used to schedule two processes.
+    The first is getRecommendtions where data is selected from sensors, ai models run and some recommendations that will be sent to the user result. This is scheduled in 00 minute
+    The second is checkRecommendations 
 
+'''
 if __name__ == '__main__':
 
-    #q = Queue()
     while(1):
         time.sleep(1)
-
-
-    '''
-    # take measurements from all sensors again
-    sensorDict_after = simulateSensors("00606EFFFEABADEF")
-
-    recommendationNumbers = recommendationNumbers + [1,2,3,4]
-
-    # place recommendation facts in rule environment
-    for recommendationNumber in recommendationNumbers:
-        env.assert_string(f"(Number{recommendationNumber} was recommended)")
-
-    # place sensors facts in rule environment
-    for key in sensorDict_before:
-        env.assert_string(f"({key}_before {sensorDict_before[key]})")
-
-    for key in sensorDict_after:
-        env.assert_string(f"({key}_after {sensorDict_after[key]})")
-
-    # run the rules
-    env.run()
-
-    # select all facts after running the rules
-    facts = []
-    for i in range(len(list(env._facts.facts()))):
-        facts.append(str(list(env._facts.facts())[i])[1:-1])
-    print(facts)
-
-    # isolate only facts that refer to execution of recommendations
-    recommendationFacts = []
-    for fact in facts:
-        if "Number" in fact:
-            recommendationFacts.append(fact)
-    print(recommendationFacts)
-
-    #while True:
-    #    time.sleep(1)
-    #    #scheduler.shutdown(wait=False)
-    '''

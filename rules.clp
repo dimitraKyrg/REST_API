@@ -135,7 +135,7 @@
 (defrule checkRule1_false
     (water heater stayed on)(Number1 was recommended)
     =>
-    (assert (Number1 was dissmised))
+    (assert (Number1 was dismissed))
 )
 
 (defrule checkRule2_true
@@ -147,7 +147,7 @@
 (defrule checkRule2_false
     (not(Humididty got lower))(Number2 was recommended)
     =>
-    (assert (Number2 was dissmised))
+    (assert (Number2 was dismissed))
 )
 
 (defrule checkRule3_true
@@ -159,7 +159,7 @@
 (defrule checkRule3_false
     (not(co2 got lower))(Number3 was recommended)
     =>
-    (assert (Number3 was dissmised))
+    (assert (Number3 was dismissed))
 )
 
 (defrule checkRule4_true
@@ -171,7 +171,7 @@
 (defrule checkRule4_false
     (HVAC stayed on)(Number4 was recommended)
     =>
-    (assert (Number4 was dissmised))
+    (assert (Number4 was dismissed))
 )
 
 (defrule checkRule8_true
@@ -183,7 +183,7 @@
 (defrule checkRule8_false
     (not(lighting got lower))(Number8 was recommended)
     =>
-    (assert (Number8 was dissmised))
+    (assert (Number8 was dismissed))
 )
 
 ;example of rule that uses numerical comparison
