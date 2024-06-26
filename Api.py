@@ -77,9 +77,6 @@ def recommendation():
 def occupancy_retrain():
     try:
         data = tools.occupancy_retrain(request.json)
-        print('------------------------------------------------------------------------------------------------')
-        print(data)
-        print('------------------------------------------------------------------------------------------------')
         return jsonify(data), 200
     except Exception as e:
         data = {'error': e}

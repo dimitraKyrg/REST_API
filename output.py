@@ -506,7 +506,7 @@ def getRecommendations(q,databaseName):
     # In this case it is used to pass the list of activated recommendations from the first process to the second.
     q.put(recommendationNumbers)
 
-def checkRecommendations(q,databaseName):
+def checkRecommendations(q,databaseName,envi):
     """
     This function is called repetively in a specific exact time interval after "getRecommendations".  First, pops out the list of activated recommendations from the q queue.
     Then it takes new measurements using simulate sensors again and writes them in the sql database. 
@@ -515,6 +515,7 @@ def checkRecommendations(q,databaseName):
     ----------
     q                           -- it is a queue object used to share variables between threads (processes) 
     databaseName                -- the name of the database used to store sensor measurements 
+    envi                        -- the rule environment as input, it is taken as input in the function so that it can be reset
 
     output:
     --------
@@ -522,9 +523,10 @@ def checkRecommendations(q,databaseName):
     dismissedRecommendations    -- list of numbers of recommendations that were dismissed
 
     """
+    envi.reset()
 
     # extract measurements from previous timestamp from database
-    sensorDict_before = sqlDB.extractRowsFromDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName = databaseName)
+    sensorDict_before = sqlDB.extractLastRowFromDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName = databaseName)
 
     # the list with activated recommendations pops out of the que, now the queue is empty and this fuction knows which recommendations were activated
     recommendationNumbers = q.get()
@@ -537,22 +539,22 @@ def checkRecommendations(q,databaseName):
 
     # place recommendation facts in rule environment
     for recommendationNumber in recommendationNumbers:
-        env.assert_string(f"(Number{recommendationNumber} was recommended)")
+        envi.assert_string(f"(Number{recommendationNumber} was recommended)")
 
     # place sensor facts in rule environment
     for key in sensorDict_before:
-        env.assert_string(f"({key}_before {sensorDict_before[key]})")
+        envi.assert_string(f"({key}_before {sensorDict_before[key]})")
 
     for key in sensorDict_after:
-        env.assert_string(f"({key}_after {sensorDict_after[key]})")
+        envi.assert_string(f"({key}_after {sensorDict_after[key]})")
 
     # run the rules
-    env.run()
+    envi.run()
 
     # select all facts after running the rules
     facts = []
-    for i in range(len(list(env._facts.facts()))):
-        facts.append(str(list(env._facts.facts())[i])[1:-1])
+    for i in range(len(list(envi._facts.facts()))):
+        facts.append(str(list(envi._facts.facts())[i])[1:-1])
     print(facts)
 
     # isolate only facts that refer to execution of recommendations
@@ -571,13 +573,15 @@ def checkRecommendations(q,databaseName):
     print(followedRecommendations)
     print(dismissedRecommendations)
 
+    
+
     return followedRecommendations,dismissedRecommendations
 
 # create the queue object, which will be used to share variables between processes.
 q = Queue()
 
 # create database
-databaseName = "fysikoAerio25"
+databaseName = "fysikoAerio8"
 sqlDB.createSqlDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName = databaseName)
 
 # create the rule environment
@@ -600,9 +604,9 @@ env.load(rule_file)
 # Create a scheduler
 scheduler = BackgroundScheduler()
 # Add the job to the scheduler - runs the 'getRecommendations' function every 00 minute
-scheduler.add_job(getRecommendations, 'cron', minute="26",args=[q,databaseName])
+scheduler.add_job(getRecommendations, 'cron', minute="55,57",args=[q,databaseName])
 # Add the job to the scheduler - runs the 'checkRecommendations' function every 15 minute
-scheduler.add_job(checkRecommendations, 'cron', minute="27",args=[q,databaseName])
+scheduler.add_job(checkRecommendations, 'cron', minute="56,58",args=[q,databaseName,env])
 # Start the scheduler
 scheduler.start()
 

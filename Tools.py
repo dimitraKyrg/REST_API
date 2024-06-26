@@ -293,8 +293,11 @@ class Tools:
                 path_except_model_name = self.read_data.get_path_except_model_name(client)
                 client = args["client"]
                 for key in dis_out.keys():
+                    print(f'-------------key {key}')
                     activity_output = None
                     duration, act_conf = self.read_data.get_duration(client, key)
+                    print(f'act_conf : {act_conf}')
+                    print(f'duration : {duration}')
                     if act_conf and (duration is not None):
                         try:
                             if occ_out["occupancy"] != 2:
@@ -324,6 +327,7 @@ class Tools:
                                     }
                                     ac = ActivityModels(args=activity_input, files=files)
                                     activity_output = ac.get_activity(float(dis_out[key]))
+                            print(activity_output)
                             if activity_output:
                                 output = {
                                     "device": key,

@@ -44,7 +44,8 @@ def createSqlDatabase(dbName,host,user,port,password):
 
     # create table for sensor measurements 
     mycursor.execute("""CREATE TABLE sensorMeasurements(
-                        timestamp CHAR(19) NOT NULL PRIMARY KEY,
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        timestamp CHAR(19) NOT NULL,
                         latitude INT,
                         longtitude INT,
                         hvac_temperature INT,
@@ -91,8 +92,8 @@ def addRowToDatabase(dbName,host,user,port,password,rowDict):
 
     mydb.commit()
 
-# edv na to xvrisv se duo functions, to ena na pairnei olh th bash (h estv kapoiew teleytaies times an ginei terastia) kai to allo na apomonvnei thn teleytaia seira
-def extractRowsFromDatabase(dbName,host,user,port,password):
+# e dv na to xvrisv se duo functions, to ena na pairnei olh th bash (h estv kapoiew teleytaies times an ginei terastia) kai to allo na apomonvnei thn teleytaia seira
+def extractLastRowFromDatabase(dbName,host,user,port,password):
     mydb = mysql.connector.connect(
         host = host,
         port = port,
@@ -103,11 +104,11 @@ def extractRowsFromDatabase(dbName,host,user,port,password):
 
     mycursor = mydb.cursor()
 
-    mycursor.execute("SELECT * FROM sensorMeasurements")
-    myresult = mycursor.fetchall()
-    result_dataFrame = pd.read_sql("SELECT * FROM sensorMeasurements", mydb)
+    #mycursor.execute("SELECT * FROM sensorMeasurements ORDER BY id DESC LIMIT 1")
+    #myresult = mycursor.fetchall()
+    result_dataFrame = pd.read_sql("SELECT * FROM sensorMeasurements ORDER BY id DESC LIMIT 1", mydb)
 
-    lastRow = result_dataFrame.iloc[-1]
+    lastRow = result_dataFrame.iloc[0]
     lastRowDict = lastRow.to_dict()
 
     return lastRowDict

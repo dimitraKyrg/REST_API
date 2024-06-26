@@ -139,10 +139,12 @@ class ReadData:
         """
         try:
             p = self.files_path / client / 'Configs' / 'config.ini'
+            print(p)
             p = os.fsdecode(p)
             config = configparser.ConfigParser()
-            config.optionxform=str
+            config.optionxform = str
             config.read(p)
+            print(f'\n{device}')
             if device not in dict(config.items("tempDuration")):
                 print('den einai mes to dict')
                 return None, p
