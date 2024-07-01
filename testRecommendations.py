@@ -218,7 +218,7 @@ tch_train_body = {
 
 def simulateSensors(client):
     """
-    This is a temporary function to simulate taking measurements from sensors. Instead of taking the measurements, it asks for them as keyboard input.
+    This is a temporary function to simulate taking measurements from sensors. Instead of taking the measurements, it asks for them as keyboard input for now.
 
     arguments:
     ----------
@@ -523,6 +523,7 @@ def checkRecommendations(q,databaseName,envi):
     dismissedRecommendations    -- list of numbers of recommendations that were dismissed
 
     """
+    # reset the rule environment to delete previous facts and activations
     envi.reset()
 
     # extract measurements from previous timestamp from database
@@ -577,11 +578,14 @@ def checkRecommendations(q,databaseName,envi):
 
     return followedRecommendations,dismissedRecommendations
 
+'''
+-------------------------------------------------------------------------Here variables and schedulers are being declared-------------------------------------------------------------------------
+'''
 # create the queue object, which will be used to share variables between processes.
 q = Queue()
 
 # create database
-databaseName = "fysikoAerio8"
+databaseName = "fysikoAerio1"
 sqlDB.createSqlDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName = databaseName)
 
 # create the rule environment
@@ -604,9 +608,9 @@ env.load(rule_file)
 # Create a scheduler
 scheduler = BackgroundScheduler()
 # Add the job to the scheduler - runs the 'getRecommendations' function every 00 minute
-scheduler.add_job(getRecommendations, 'cron', minute="55,57",args=[q,databaseName])
+scheduler.add_job(getRecommendations, 'cron', minute="17,19,21",args=[q,databaseName])
 # Add the job to the scheduler - runs the 'checkRecommendations' function every 15 minute
-scheduler.add_job(checkRecommendations, 'cron', minute="56,58",args=[q,databaseName,env])
+scheduler.add_job(checkRecommendations, 'cron', minute="18,20,22",args=[q,databaseName,env])
 # Start the scheduler
 scheduler.start()
 

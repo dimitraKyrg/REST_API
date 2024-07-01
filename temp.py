@@ -15,8 +15,27 @@ from multiprocessing import Process, Queue
 import sqlDB
 import re
 
+comfort_dictionary = {
+    "client": "00606EFFFEABADEF",
+    "timestamp": "2020-03-01 19:18:00",
+    "latitude": 37.999545,
+    "longitude": 23.746887,
+    "devices": {
+        "hvac": {
+            "temperature": 29.00,
+            "humidity": 40.00,
+            "luminance": 800
+        },
+        "sensor": {
+            "temperature": 31.00,
+            "humidity": 45.00,
+            "luminance": 100
+        }
+    }
+}
+
 activity_body = {
-    "client": "00606EFFFEAB11DB",
+    "client": "00606EFFFEABADEF",
     "timestamp": "2020-03-01 19:18:00",
     "devices": {
         "fridge": 82.12,
@@ -29,8 +48,10 @@ activity_body = {
         "occupancy": 1.0
     }
 }
-
-
 activity_response = requests.post('http://127.0.0.1:8084/activity',json=activity_body).json()
 
 print(activity_response)
+
+#comfort_response = requests.post('http://127.0.0.1:8084/comfort',json=comfort_dictionary).json()
+
+#print(comfort_response)

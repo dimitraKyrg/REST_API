@@ -1,5 +1,8 @@
 import mysql.connector
 import pandas as pd
+import pandas as pd 
+import psycopg2 
+from sqlalchemy import create_engine 
 
 '''
     This file contains functions used to create read and write from an sql database
@@ -94,6 +97,13 @@ def addRowToDatabase(dbName,host,user,port,password,rowDict):
 
 # e dv na to xvrisv se duo functions, to ena na pairnei olh th bash (h estv kapoiew teleytaies times an ginei terastia) kai to allo na apomonvnei thn teleytaia seira
 def extractLastRowFromDatabase(dbName,host,user,port,password):
+    '''
+    # establish connection with the database 
+    engine = create_engine(f"mysql+pymysql://{user}:{password}@{host}:{port}/{dbName}")
+    
+    # read table data using sql query 
+    sql_df = pd.read_sql("SELECT * FROM sensorMeasurements ORDER BY id DESC LIMIT 1", engine.connect()) 
+    '''
     mydb = mysql.connector.connect(
         host = host,
         port = port,
@@ -102,12 +112,12 @@ def extractLastRowFromDatabase(dbName,host,user,port,password):
         database = dbName
     )
 
-    mycursor = mydb.cursor()
-
+    #mycursor = mydb.cursor()
     #mycursor.execute("SELECT * FROM sensorMeasurements ORDER BY id DESC LIMIT 1")
     #myresult = mycursor.fetchall()
-    result_dataFrame = pd.read_sql("SELECT * FROM sensorMeasurements ORDER BY id DESC LIMIT 1", mydb)
 
+    result_dataFrame = pd.read_sql_query("SELECT * FROM sensorMeasurements ORDER BY id DESC LIMIT 1", mydb)
+    
     lastRow = result_dataFrame.iloc[0]
     lastRowDict = lastRow.to_dict()
 
