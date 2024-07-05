@@ -3,7 +3,6 @@ from Tools import Tools
 from flask_cors import CORS
 from ReadConfig import ReadConfig
 import xgboost
-#from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
 import os
 import requests
@@ -176,9 +175,6 @@ def create_occupancy_models():
 def create_activity_models():
     try:
         data = tools.create_activity_models(request.json)
-        print('---------------------------------------------------------------------------------')
-        print(data)
-        print('---------------------------------------------------------------------------------')
         return jsonify(data), 200
     except Exception as e:
         data = {'error': e}

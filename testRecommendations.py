@@ -479,7 +479,7 @@ def collectRecommendations(sensor_dict):
     return recommendationNumbers
 
 
-def getRecommendations(q,databaseName):
+def getRecommendations(q,dbDict):
     """
     This function is called repetively in a time interval specified in the scheduler declaration. First, it calls the function simulate sensors to take sensor mesurements. 
     Then, writes in an sql database the measurements and the timestamp. Then, uses these measurements to feed the ai models and get recommendations.
@@ -487,7 +487,7 @@ def getRecommendations(q,databaseName):
     arguments:
     ----------
     q               -- it is a queue object used to share variables between threads (processes) 
-    databaseNmae    -- the name of the database used to store sensor measurements 
+    dbDict          -- dictionary with all info to connect to mysql database
 
     output:
     --------
@@ -497,7 +497,7 @@ def getRecommendations(q,databaseName):
     # take measurements from all sensors
     sensorDict_before = simulateSensors("00606EFFFEABADEF")
     # place measurements in an sql database
-    sqlDB.addRowToDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName=databaseName,rowDict = sensorDict_before)
+    sqlDB.addRowToDatabase(dbName = dbDict['dbName'],host = dbDict['host'], user = dbDict["user"], port = dbDict['port'], password = dbDict['password'],rowDict = sensorDict_before)
 
     # run ai to get recommendations
     recommendationNumbers = collectRecommendations(sensorDict_before)
@@ -506,7 +506,7 @@ def getRecommendations(q,databaseName):
     # In this case it is used to pass the list of activated recommendations from the first process to the second.
     q.put(recommendationNumbers)
 
-def checkRecommendations(q,databaseName,envi):
+def checkRecommendations(q,dbDict,envi):
     """
     This function is called repetively in a specific exact time interval after "getRecommendations".  First, pops out the list of activated recommendations from the q queue.
     Then it takes new measurements using simulate sensors again and writes them in the sql database. 
@@ -514,7 +514,7 @@ def checkRecommendations(q,databaseName,envi):
     arguments:
     ----------
     q                           -- it is a queue object used to share variables between threads (processes) 
-    databaseName                -- the name of the database used to store sensor measurements 
+    dbDict                      -- dictionary with all info to connect to mysql database
     envi                        -- the rule environment as input, it is taken as input in the function so that it can be reset
 
     output:
@@ -527,13 +527,13 @@ def checkRecommendations(q,databaseName,envi):
     envi.reset()
 
     # extract measurements from previous timestamp from database
-    sensorDict_before = sqlDB.extractLastRowFromDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName = databaseName)
+    sensorDict_before = sqlDB.extractLastRowFromDatabase(dbName = dbDict['dbName'],host = dbDict['host'], user = dbDict["user"], port = dbDict['port'], password = dbDict['password'])
 
     # the list with activated recommendations pops out of the que, now the queue is empty and this fuction knows which recommendations were activated
     recommendationNumbers = q.get()
     # get sensor measurements and write them in the database
     sensorDict_after = simulateSensors("00606EFFFEABADEF")
-    sqlDB.addRowToDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName=databaseName,rowDict = sensorDict_after)
+    sqlDB.addRowToDatabase(dbName = dbDict['dbName'],host = dbDict['host'], user = dbDict["user"], port = dbDict['port'], password = dbDict['password'],rowDict = sensorDict_after)
 
     # temprarily add some recommendation numbers just to check rules in the next step
     recommendationNumbers = recommendationNumbers + [1,2,3,4]
@@ -585,8 +585,9 @@ def checkRecommendations(q,databaseName,envi):
 q = Queue()
 
 # create database
-databaseName = "fysikoAerio1"
-sqlDB.createSqlDatabase(host="127.0.0.1",port = '3306',user = "root",password="my-secret-pw",dbName = databaseName)
+databaseName = "fysikoAerio8"
+dbDictionary = {"host":"127.0.0.1","port" : '3306',"user" : "root","password":"my-secret-pw","dbName" : databaseName}
+sqlDB.createSqlDatabase(dbName = dbDictionary['dbName'],host = dbDictionary['host'], user = dbDictionary["user"], port = dbDictionary['port'], password = dbDictionary['password'])
 
 # create the rule environment
 env = clips.Environment()
@@ -606,11 +607,11 @@ rule_file = 'rules.CLP'
 env.load(rule_file)
 
 # Create a scheduler
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler({'apscheduler.job_defaults.max_instances': 50})
 # Add the job to the scheduler - runs the 'getRecommendations' function every 00 minute
-scheduler.add_job(getRecommendations, 'cron', minute="17,19,21",args=[q,databaseName])
+scheduler.add_job(getRecommendations, 'cron', minute="20",args=[q,dbDictionary])
 # Add the job to the scheduler - runs the 'checkRecommendations' function every 15 minute
-scheduler.add_job(checkRecommendations, 'cron', minute="18,20,22",args=[q,databaseName,env])
+scheduler.add_job(checkRecommendations, 'cron', minute="21",args=[q,dbDictionary,env])
 # Start the scheduler
 scheduler.start()
 
